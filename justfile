@@ -8,10 +8,17 @@ set windows-shell := ["powershell.exe"]
 test:
     go test ./...
 
-# Library: go vet + gofmt -l (fails if anything is unformatted)
+# Library: go vet + gofmt -l, fails if anything is unformatted (Windows)
+[windows]
 check:
     go vet ./...
     $unformatted = (gofmt -l . | Out-String).Trim(); if ($unformatted) { Write-Host $unformatted; exit 1 }
+
+# Library: go vet + gofmt -l, fails if anything is unformatted (Unix)
+[unix]
+check:
+    go vet ./...
+    unformatted=$(gofmt -l .); if [ -n "$unformatted" ]; then echo "$unformatted"; exit 1; fi
 
 # Library: gofmt -w
 format:
@@ -55,9 +62,15 @@ run-robot:
 run-traffic:
     go run -buildvcs=false ./examples/traffic
 
-# Removes generated artifacts
+# Removes generated artifacts (Windows)
+[windows]
 clean:
     Remove-Item -Force -ErrorAction SilentlyContinue statemachine.exe
+
+# Removes generated artifacts (Unix)
+[unix]
+clean:
+    rm -f statemachine.exe
 
 # Displays Go tool version
 @versions:
