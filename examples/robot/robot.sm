@@ -1,0 +1,13 @@
+package: main
+
+transitions: {
+    *Off + PowerOn = Idle,
+    Idle + MoveTo = Moving,
+    Moving + Tick = _,
+    Moving + Arrive = Idle,
+    Moving + ObstacleDetected = Waiting,
+    Waiting + ObstacleClear = Moving,
+    Idle | Moving | Waiting + EmergencyStop = EmergencyStopped,
+    EmergencyStopped + Reset = Idle,
+    _ + PowerOff = Off,
+}
