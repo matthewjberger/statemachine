@@ -1,9 +1,0 @@
-package: main
-name: Light
-
-transitions: {
-    *Red + Tick = Green,
-    Green + Tick = Yellow,
-    Yellow + Tick = Red,
-    _ + Reset = Red,
-}

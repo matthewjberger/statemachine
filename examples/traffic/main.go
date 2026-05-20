@@ -1,7 +1,59 @@
-//go:generate statemachine traffic.sm
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/matthewjberger/statemachine"
+)
+
+type LightState uint8
+
+const (
+	LightStateRed LightState = iota
+	LightStateGreen
+	LightStateYellow
+)
+
+func (s LightState) String() string {
+	switch s {
+	case LightStateRed:
+		return "Red"
+	case LightStateGreen:
+		return "Green"
+	case LightStateYellow:
+		return "Yellow"
+	}
+	return "Unknown"
+}
+
+type LightEvent uint8
+
+const (
+	LightEventTick LightEvent = iota
+	LightEventReset
+)
+
+func (e LightEvent) String() string {
+	switch e {
+	case LightEventTick:
+		return "Tick"
+	case LightEventReset:
+		return "Reset"
+	}
+	return "Unknown"
+}
+
+var lightMachine = statemachine.MustNew(statemachine.Spec[LightState, LightEvent]{
+	Initial: LightStateRed,
+	Transitions: []statemachine.Transition[LightState, LightEvent]{
+		{From: LightStateRed, Event: LightEventTick, To: LightStateGreen},
+		{From: LightStateGreen, Event: LightEventTick, To: LightStateYellow},
+		{From: LightStateYellow, Event: LightEventTick, To: LightStateRed},
+	},
+	Wildcards: []statemachine.Wildcard[LightState, LightEvent]{
+		{Event: LightEventReset, To: LightStateRed},
+	},
+})
 
 type Light struct {
 	state LightState
@@ -9,11 +61,11 @@ type Light struct {
 }
 
 func newLight() *Light {
-	return &Light{state: DefaultLightState()}
+	return &Light{state: lightMachine.Initial()}
 }
 
 func (l *Light) handle(event LightEvent) {
-	next, ok := l.state.ProcessEvent(event)
+	next, ok := lightMachine.ProcessEvent(l.state, event)
 	if !ok {
 		fmt.Printf("  %s + %s: ignored (no transition)\n", l.state, event)
 		return
@@ -27,8 +79,8 @@ func (l *Light) handle(event LightEvent) {
 
 func main() {
 	light := newLight()
-	fmt.Printf("States: %v\n", AllLightStates)
-	fmt.Printf("Events: %v\n", AllLightEvents)
+	fmt.Printf("States: %v\n", lightMachine.States())
+	fmt.Printf("Events: %v\n", lightMachine.Events())
 	fmt.Printf("Initial: %s\n\n", light.state)
 
 	for _, event := range []LightEvent{
@@ -43,7 +95,7 @@ func main() {
 
 	fmt.Printf("\nTotal ticks: %d\n", light.ticks)
 	fmt.Printf("\nValidEvents per state:\n")
-	for _, state := range AllLightStates {
-		fmt.Printf("  %s: %v\n", state, state.ValidEvents())
+	for _, state := range lightMachine.States() {
+		fmt.Printf("  %s: %v\n", state, lightMachine.ValidEvents(state))
 	}
 }

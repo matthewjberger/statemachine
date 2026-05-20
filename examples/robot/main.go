@@ -1,7 +1,93 @@
-//go:generate statemachine robot.sm
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/matthewjberger/statemachine"
+)
+
+type State uint8
+
+const (
+	StateOff State = iota
+	StateIdle
+	StateMoving
+	StateWaiting
+	StateEmergencyStopped
+)
+
+func (s State) String() string {
+	switch s {
+	case StateOff:
+		return "Off"
+	case StateIdle:
+		return "Idle"
+	case StateMoving:
+		return "Moving"
+	case StateWaiting:
+		return "Waiting"
+	case StateEmergencyStopped:
+		return "EmergencyStopped"
+	}
+	return "Unknown"
+}
+
+type Event uint8
+
+const (
+	EventPowerOn Event = iota
+	EventMoveTo
+	EventTick
+	EventArrive
+	EventObstacleDetected
+	EventObstacleClear
+	EventEmergencyStop
+	EventReset
+	EventPowerOff
+)
+
+func (e Event) String() string {
+	switch e {
+	case EventPowerOn:
+		return "PowerOn"
+	case EventMoveTo:
+		return "MoveTo"
+	case EventTick:
+		return "Tick"
+	case EventArrive:
+		return "Arrive"
+	case EventObstacleDetected:
+		return "ObstacleDetected"
+	case EventObstacleClear:
+		return "ObstacleClear"
+	case EventEmergencyStop:
+		return "EmergencyStop"
+	case EventReset:
+		return "Reset"
+	case EventPowerOff:
+		return "PowerOff"
+	}
+	return "Unknown"
+}
+
+var robotMachine = statemachine.MustNew(statemachine.Spec[State, Event]{
+	Initial: StateOff,
+	Transitions: []statemachine.Transition[State, Event]{
+		{From: StateOff, Event: EventPowerOn, To: StateIdle},
+		{From: StateIdle, Event: EventMoveTo, To: StateMoving},
+		{From: StateMoving, Event: EventTick, To: StateMoving},
+		{From: StateMoving, Event: EventArrive, To: StateIdle},
+		{From: StateMoving, Event: EventObstacleDetected, To: StateWaiting},
+		{From: StateWaiting, Event: EventObstacleClear, To: StateMoving},
+		{From: StateIdle, Event: EventEmergencyStop, To: StateEmergencyStopped},
+		{From: StateMoving, Event: EventEmergencyStop, To: StateEmergencyStopped},
+		{From: StateWaiting, Event: EventEmergencyStop, To: StateEmergencyStopped},
+		{From: StateEmergencyStopped, Event: EventReset, To: StateIdle},
+	},
+	Wildcards: []statemachine.Wildcard[State, Event]{
+		{Event: EventPowerOff, To: StateOff},
+	},
+})
 
 type Robot struct {
 	state         State
@@ -14,11 +100,11 @@ type Robot struct {
 }
 
 func newRobot() *Robot {
-	return &Robot{state: DefaultState(), battery: 100}
+	return &Robot{state: robotMachine.Initial(), battery: 100}
 }
 
 func (r *Robot) powerOn() {
-	next, ok := r.state.ProcessEvent(EventPowerOn)
+	next, ok := robotMachine.ProcessEvent(r.state, EventPowerOn)
 	if !ok {
 		return
 	}
@@ -27,7 +113,7 @@ func (r *Robot) powerOn() {
 }
 
 func (r *Robot) powerOff() {
-	next, ok := r.state.ProcessEvent(EventPowerOff)
+	next, ok := robotMachine.ProcessEvent(r.state, EventPowerOff)
 	if !ok {
 		return
 	}
@@ -38,7 +124,7 @@ func (r *Robot) powerOff() {
 }
 
 func (r *Robot) moveTo(position int) {
-	next, ok := r.state.ProcessEvent(EventMoveTo)
+	next, ok := robotMachine.ProcessEvent(r.state, EventMoveTo)
 	if !ok {
 		return
 	}
@@ -50,7 +136,7 @@ func (r *Robot) moveTo(position int) {
 }
 
 func (r *Robot) tick() {
-	next, ok := r.state.ProcessEvent(EventTick)
+	next, ok := robotMachine.ProcessEvent(r.state, EventTick)
 	if !ok {
 		return
 	}
@@ -67,7 +153,7 @@ func (r *Robot) checkPosition() {
 		fmt.Printf("  [Info] Target not reached yet\n")
 		return
 	}
-	next, ok := r.state.ProcessEvent(EventArrive)
+	next, ok := robotMachine.ProcessEvent(r.state, EventArrive)
 	if !ok {
 		return
 	}
@@ -77,7 +163,7 @@ func (r *Robot) checkPosition() {
 }
 
 func (r *Robot) obstacleDetected() {
-	next, ok := r.state.ProcessEvent(EventObstacleDetected)
+	next, ok := robotMachine.ProcessEvent(r.state, EventObstacleDetected)
 	if !ok {
 		return
 	}
@@ -87,7 +173,7 @@ func (r *Robot) obstacleDetected() {
 }
 
 func (r *Robot) tryClearObstacle() {
-	next, ok := r.state.ProcessEvent(EventObstacleClear)
+	next, ok := robotMachine.ProcessEvent(r.state, EventObstacleClear)
 	if !ok {
 		return
 	}
@@ -100,7 +186,7 @@ func (r *Robot) tryClearObstacle() {
 }
 
 func (r *Robot) emergencyStop() {
-	next, ok := r.state.ProcessEvent(EventEmergencyStop)
+	next, ok := robotMachine.ProcessEvent(r.state, EventEmergencyStop)
 	if !ok {
 		return
 	}
@@ -109,7 +195,7 @@ func (r *Robot) emergencyStop() {
 }
 
 func (r *Robot) tryReset() {
-	next, ok := r.state.ProcessEvent(EventReset)
+	next, ok := robotMachine.ProcessEvent(r.state, EventReset)
 	if !ok {
 		return
 	}
@@ -124,12 +210,12 @@ func main() {
 	robot := newRobot()
 
 	fmt.Println("=== State Machine Info ===")
-	fmt.Printf("States: %v\n", AllStates)
-	fmt.Printf("Events: %v\n\n", AllEvents)
+	fmt.Printf("States: %v\n", robotMachine.States())
+	fmt.Printf("Events: %v\n\n", robotMachine.Events())
 
 	fmt.Println("=== Valid Events Per State ===")
-	for _, state := range AllStates {
-		events := state.ValidEvents()
+	for _, state := range robotMachine.States() {
+		events := robotMachine.ValidEvents(state)
 		if len(events) == 0 {
 			fmt.Printf("  %s: terminal\n", state)
 			continue
@@ -174,5 +260,5 @@ func main() {
 	fmt.Printf("Obstacles encountered: %d\n\n", robot.obstacles)
 
 	fmt.Println("=== DOT ===")
-	fmt.Println(DOT)
+	fmt.Println(robotMachine.DOT())
 }
