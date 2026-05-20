@@ -156,27 +156,6 @@ Go has no macro system, so the choice is between a runtime registration API (`fs
 
 The same trade-off the original Rust crate makes, in the equivalent Go shape.
 
-## Just recipes
-
-Tasks are driven through a `justfile` (run `just --list`):
-
-| Task              | What it does                                          |
-|-------------------|-------------------------------------------------------|
-| `just test`       | `go test ./...`                                       |
-| `just check`      | `go vet` + `gofmt -l` (fails on unformatted)          |
-| `just format`     | `gofmt -w .`                                          |
-| `just tidy`       | `go mod tidy`                                         |
-| `just tidy-check` | `go mod tidy -diff`                                   |
-| `just outdated`   | `go list -m -u all`                                   |
-| `just ci`         | check + test                                          |
-| `just audit`      | check + tidy-check + outdated + test                  |
-| `just build`      | build the CLI into `./statemachine.exe`               |
-| `just install`    | `go install ./cmd/statemachine`                       |
-| `just gen`        | install + regenerate every example                    |
-| `just run-robot`  | run the robot demo                                    |
-| `just run-traffic`| run the traffic light demo                            |
-| `just clean`      | remove build artifacts                                |
-
 ## License
 
 Dual-licensed under MIT and Apache-2.0. See [LICENSE-MIT](LICENSE-MIT) and [LICENSE-APACHE](LICENSE-APACHE). Pick whichever fits your project.

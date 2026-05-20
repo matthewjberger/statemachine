@@ -5,23 +5,26 @@ The `.sm` source format is a small, statically-validated DSL that describes one 
 ## File grammar
 
 ```
-File          := Header* TransitionsBlock
-Header        := "package" ":" Ident
-               | "name"    ":" Ident
-TransitionsBlock := "transitions" ":" "{" (Transition ","?)* "}"
-Transition    := Sources "+" EventList "=" Target
-Sources       := "_"
-               | ("*"? Ident) ("|" "*"? Ident)*
-EventList     := Ident ("|" Ident)*
-Target        := Ident
-               | "_"
-Ident         := Letter (Letter | Digit | "_")*
-Letter        := any Unicode letter character
-Digit         := 0..9
-Comment       := "//" until end of line
+File             := Header* TransitionsBlock
+Header           := "package" ":" Ident
+                  | "name"    ":" Ident
+TransitionsBlock := "transitions" ":" "{" TransitionList? "}"
+TransitionList   := Transition ("," Transition)* ","?
+Transition       := Sources "+" EventList "=" Target
+Sources          := "_"
+                  | ("*"? Ident) ("|" "*"? Ident)*
+EventList        := Ident ("|" Ident)*
+Target           := Ident
+                  | "_"
+Ident            := Letter (Letter | Digit | "_")*
+Letter           := ASCII letter (A..Z, a..z) or "_"
+Digit            := 0..9
+Comment          := "//" until end of line
 ```
 
-Whitespace (`\s`, `\t`, `\r`, `\n`) and `//` line comments may appear anywhere outside an identifier. Trailing commas inside the `transitions` block are optional. The order of headers is free; both `package: x\nname: Y` and `name: Y\npackage: x` parse identically.
+The lexer scans byte-by-byte, so non-ASCII identifiers (`é`, `ñ`, ...) are not supported even though Go accepts them. Stick to ASCII.
+
+Whitespace (`\s`, `\t`, `\r`, `\n`) and `//` line comments may appear anywhere outside an identifier. Transitions inside the block are separated by `,`; the trailing comma after the last transition is optional but the separators between transitions are required. The order of headers is free; both `package: x\nname: Y` and `name: Y\npackage: x` parse identically.
 
 ## Headers
 
@@ -128,9 +131,9 @@ transitions: {
 
 ## Identifier rules
 
-Identifiers start with a Unicode letter or `_` and continue with letters, digits, or `_`. The bare `_` is reserved (wildcard source or internal target) and cannot be used as a state, event, or header value. Identifiers like `_foo`, `Foo_Bar`, `state2` are all legal.
+Identifiers start with an ASCII letter or `_` and continue with letters, digits, or `_`. The bare `_` is reserved (wildcard source or internal target) and cannot be used as a state, event, or header value. Identifiers like `_foo`, `Foo_Bar`, `state2` are all legal.
 
-All identifiers in the DSL become Go identifiers in the generated code without transformation, so they must be valid Go identifiers (which is a subset of what the lexer accepts — for example, the parser will accept Unicode letters that are not valid Go identifier characters, and the generated file would then fail to compile). Stick to ASCII letters, digits, and `_` to be safe.
+All identifiers in the DSL become Go identifiers in the generated code without transformation, so they must also be valid Go identifiers. The lexer scans byte-by-byte, so multi-byte UTF-8 letters do not work even though Go itself accepts them. Stick to ASCII.
 
 ## Compile-time validations
 
